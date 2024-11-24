@@ -55,7 +55,7 @@ int main(){
 		nn_learn(nn, g, 0.017);
         if(i % 2000 == 0){
             float tc = nn_cost(nn, cti, cto);
-            if(tc < 0.5) break;
+            if(tc < 0.02) break;
             printf("%zu - %f\n",(int) i, tc);
         }
 	}
@@ -91,7 +91,7 @@ void paint(NN nn) {
     
     SetTargetFPS(60);
     int cnt = 0;
-
+    
     while(!WindowShouldClose()){
         Vector2 mousePosition = GetMousePosition();
         if(IsMouseButtonDown(MOUSE_LEFT_BUTTON)){
@@ -139,7 +139,7 @@ void paint(NN nn) {
 
         BeginDrawing();
 
-        DrawText("Click RMB to clear the screen!", 225, 580, 20, DARKGRAY);
+        DrawText("Click RMB to clear the screen", 228, 580, 20, DARKGRAY);
         DrawText(buf, 20, 580, 20, DARKGRAY);
 
         for(int i = 0; i < 10; i++){
