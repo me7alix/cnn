@@ -16,7 +16,7 @@ int main(){
 	srand(time(0));
 	Mat mat = parse_csv_to_mat("./digit-recognizer/train.csv");
 
-    size_t layers[] = {28*28, 32, 16, 10};
+    size_t layers[] = {28*28, 64, 32, 10};
     Act* actf = (Act[]){ACT_RELU, ACT_RELU, ACT_SIGM};
 	NN nn = nn_new(layers, actf, ARR_LEN(layers));
 	NN g = nn_new(layers, actf, ARR_LEN(layers));
@@ -55,7 +55,7 @@ int main(){
 		nn_learn(nn, g, 0.017);
         if(i % 2000 == 0){
             float tc = nn_cost(nn, cti, cto);
-            if(tc < 0.04) break;
+            if(tc < 0.5) break;
             printf("%zu - %f\n",(int) i, tc);
         }
 	}
@@ -80,8 +80,10 @@ Mat ConvertToMatrix(float pixels[28][28]) {
 }
 
 void paint(NN nn) {
-    const int screenWidth = 20 * 28;
-    const int screenHeight = 600;
+    const int tiles = 28;
+    const int tile = 20;
+    const int screenWidth = tile * tiles;
+    const int screenHeight = tile * tiles + 200;
     
     InitWindow(screenWidth, screenHeight, "Drawing with cross brush on 28x28 canvas");
     
@@ -90,36 +92,35 @@ void paint(NN nn) {
     SetTargetFPS(60);
     int cnt = 0;
 
-    int tile = 28;
-
     while(!WindowShouldClose()){
         Vector2 mousePosition = GetMousePosition();
         if(IsMouseButtonDown(MOUSE_LEFT_BUTTON)){
-            int x = mousePosition.x / 20;
-            int y = mousePosition.y / 20;
-            if (x >= 0 && x < tile && y >= 0 && y < tile) {
+            int x = mousePosition.x / tile;
+            int y = mousePosition.y / tile;
+            if (x >= 0 && x < tiles && y >= 0 && y < tiles) {
                 pixels[y][x] += 0.5; // Центральный пиксель
                 if(x > 0) pixels[y][x - 1] += 0.25;
-                if(x < 27) pixels[y][x + 1] += 0.25;
+                if(x < tiles-1) pixels[y][x + 1] += 0.25;
                 if(y > 0) pixels[y - 1][x] += 0.25;
-                if(y < 27) pixels[y + 1][x] += 0.25;
+                if(y < tiles-1) pixels[y + 1][x] += 0.25;
             }
-            for(int i = 0; i < tile; i++){
-                for(int j = 0; j < tile; j++){
+            for(int i = 0; i < tiles; i++){
+                for(int j = 0; j < tiles; j++){
                     pixels[i][j] = pixels[i][j] > 1.0 ? 1.0 : pixels[i][j];
                 }
             }
         }
         
-        if(IsKeyPressed(KEY_C)){
-            for(int y = 0; y < tile; y++){
-                for(int x = 0; x < tile; x++){
+        if(IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)){
+            for(int y = 0; y < tiles; y++){
+                for(int x = 0; x < tiles; x++){
                     pixels[y][x] = 0.0;
                 }
             }
         }
 
         char buf[128];
+        char buf2[128];
         if(cnt++ % 6 == 0) {
             Mat img = ConvertToMatrix(pixels);
             NN_SET_INPUT(nn, img);
@@ -138,14 +139,25 @@ void paint(NN nn) {
 
         BeginDrawing();
 
-        DrawText(buf, 10, 580, 20, DARKGRAY);
+        DrawText("Click RMB to clear the screen!", 225, 580, 20, DARKGRAY);
+        DrawText(buf, 20, 580, 20, DARKGRAY);
+
+        for(int i = 0; i < 10; i++){
+            float k = MAT_AT(NN_OUTPUT(nn), 0, i);
+            int t = tile*tiles+160;
+            float l = (tile*tiles-60)/9;
+            DrawRectangle(20 + i * l, t-k*117, 20, k*117, DARKGRAY);
+            sprintf(buf2, "%d", i);
+            DrawText(buf2, 20 + i * l + 5, t + 10, 20, DARKGRAY);
+        }
+
         ClearBackground(RAYWHITE);
         
-        for(int y = 0; y < tile; y++){
-            for(int x = 0; x < tile; x++){
+        for(int y = 0; y < tiles; y++){
+            for(int x = 0; x < tiles; x++){
                 float v = (int)(pixels[y][x] * 255.0f);
                 Color c = {v, v, v, 255};
-                DrawRectangle(x * 20, y * 20, 20, 20, c);
+                DrawRectangle(x * tile, y * tile, tile, tile, c);
             }
         }
         
