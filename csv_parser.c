@@ -7,7 +7,6 @@ void count_rows_cols(FILE* file, size_t* rows, size_t* cols) {
     *rows = 0;
     *cols = 0;
 
-    // Подсчитываем количество столбцов по первой строке
     if (fgets(line, sizeof(line), file)) {
         (*rows)++;
         char* token = strtok(line, ",");
@@ -17,11 +16,10 @@ void count_rows_cols(FILE* file, size_t* rows, size_t* cols) {
         }
     }
 
-    // Подсчитываем оставшиеся строки
     while (fgets(line, sizeof(line), file)) {
         (*rows)++;
     }
-    rewind(file); // Возвращаемся в начало файла
+    rewind(file);
 }
 
 Mat parse_csv_to_mat(const char* filename) {
