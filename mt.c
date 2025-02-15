@@ -2,7 +2,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
-#include "csv_parser.h"
+
+#include "csv_parser.c"
 #define NN_IMPLEMENTATION
 #include "nn.h"
 
