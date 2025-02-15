@@ -44,15 +44,17 @@ int main() {
 
   // learning process
   for (size_t i = 0; true; i++) {
-    size_t s = 35;
-    size_t pos = (rand()) % (ti.rows - s);
-    Mat gti = mat_submatrix(ti, 0, pos, ti.cols - 1, pos + s);
-    Mat gto = mat_submatrix(to, 0, pos, to.cols - 1, pos + s);
+    size_t batch_size = 16;
+    size_t pos = (rand()) % (ti.rows - batch_size);
+    Mat gti = mat_submatrix(ti, 0, pos, ti.cols - 1, pos + batch_size);
+    Mat gto = mat_submatrix(to, 0, pos, to.cols - 1, pos + batch_size);
+
     nn_backprop(nn, g, gti, gto);
-    nn_learn(nn, g, 0.1);
+    nn_learn(nn, g, 0.02);
+
     if (i % 500 == 0) {
       float tc = nn_cost(nn, cti, cto);
-      if (tc < 0.5)
+      if (tc < 0.08)
         break;
       printf("cost %zu - %f\n", i, tc);
     }
