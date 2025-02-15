@@ -1,4 +1,6 @@
-#include "csv_parser.h"
+#include <stdio.h>
+#include <string.h>
+#include "nn.h"
 
 void count_rows_cols(FILE* file, size_t* rows, size_t* cols) {
     char line[65536];

@@ -1,1 +1,0 @@
-cc -g main.c nn.c matrix.c csv_parser.c -o build -lm -lraylib && ./build

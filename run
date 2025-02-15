@@ -1,0 +1,1 @@
+cc -g main.c -o build -lm -lraylib && ./build
