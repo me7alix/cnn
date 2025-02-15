@@ -1,9 +1,0 @@
-{
-    "files.associations": {
-        "matrix.h": "c",
-        "time.h": "c",
-        "raylib.h": "c",
-        "pthread.h": "c",
-        "unistd.h": "c"
-    }
-}
