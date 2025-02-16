@@ -14,7 +14,7 @@ int main() {
   srand(time(0));
   Mat mat = parse_csv_to_mat("./digitrec/train.csv");
 
-  size_t layers[] = {28 * 28, 64, 32, 10};
+  size_t layers[] = {28 * 28, 48, 16, 10};
   Act *actf = (Act[]){ACT_RELU, ACT_RELU, ACT_SIGM};
   NN nn = nn_new(layers, actf, ARR_LEN(layers));
   NN g = nn_new(layers, actf, ARR_LEN(layers));
@@ -24,8 +24,8 @@ int main() {
   Mat nto = mat_submatrix(mat, 0, 0, 0, mat.rows - 1);
   Mat ti = mat_submatrix(mat, 1, 0, mat.cols - 1, mat.rows - 1);
   Mat to = mat_alloc(mat.rows, 10);
-  Mat cti = mat_submatrix(mat, 1, 0, mat.cols - 1, 5000);
-  Mat cto = mat_submatrix(to, 0, 0, to.cols - 1, 5000);
+  Mat cti = mat_submatrix(mat, 1, 0, mat.cols - 1, 4000);
+  Mat cto = mat_submatrix(to, 0, 0, to.cols - 1, 4000);
 
   mat_zero(to);
 
@@ -43,18 +43,20 @@ int main() {
   printf("cost before training = %f\n", nn_cost(nn, cti, cto));
 
   // learning process
-  for (size_t i = 0; true; i++) {
-    size_t batch_size = 16;
+  size_t batch_size = 16;
+  float learning_rate = 0.005;
+
+  for (size_t i = 0; true; i++) { 
     size_t pos = (rand()) % (ti.rows - batch_size);
     Mat gti = mat_submatrix(ti, 0, pos, ti.cols - 1, pos + batch_size);
     Mat gto = mat_submatrix(to, 0, pos, to.cols - 1, pos + batch_size);
 
     nn_backprop(nn, g, gti, gto);
-    nn_learn(nn, g, 0.02);
+    nn_learn(nn, g, learning_rate);
 
-    if (i % 500 == 0) {
+    if (i % 2000 == 0) {
       float tc = nn_cost(nn, cti, cto);
-      if (tc < 0.08)
+      if (tc < 0.1)
         break;
       printf("cost %zu - %f\n", i, tc);
     }
