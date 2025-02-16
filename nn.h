@@ -189,10 +189,9 @@ float dactf(float y, Act actf) {
   switch (actf) {
   case ACT_RELU:
     return y >= 0 ? 1 : NN_RELU_PARAM;
-  // case ACT_SIGM:
-  //	return y * (1.0 - y);
   case ACT_SIGM:
-    return 1.f / (1.f + expf(-y)) * (1.0 - (1.f / (1.f + expf(-y))));
+    // return 1.f / (1.f + expf(-y)) * (1.0 - (1.f / (1.f + expf(-y))));
+    return y * (1.0 - y);
   }
 }
 

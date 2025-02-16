@@ -43,7 +43,7 @@ int main() {
   printf("cost before training = %f\n", nn_cost(nn, cti, cto));
 
   // learning process
-  size_t batch_size = 16;
+  size_t batch_size = 28;
   float learning_rate = 0.005;
 
   for (size_t i = 0; true; i++) { 
@@ -54,9 +54,9 @@ int main() {
     nn_backprop(nn, g, gti, gto);
     nn_learn(nn, g, learning_rate);
 
-    if (i % 2000 == 0) {
+    if (i % 4000 == 0) {
       float tc = nn_cost(nn, cti, cto);
-      if (tc < 0.1)
+      if (tc < 0.5)
         break;
       printf("cost %zu - %f\n", i, tc);
     }
