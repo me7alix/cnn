@@ -43,8 +43,8 @@ int main() {
   printf("cost before training = %f\n", nn_cost(nn, cti, cto));
 
   // learning process
-  size_t batch_size = 28;
-  float learning_rate = 0.005;
+  size_t batch_size = 32;
+  float learning_rate = 2.0;
 
   for (size_t i = 0; true; i++) { 
     size_t pos = (rand()) % (ti.rows - batch_size);
@@ -56,7 +56,7 @@ int main() {
 
     if (i % 4000 == 0) {
       float tc = nn_cost(nn, cti, cto);
-      if (tc < 0.5)
+      if (tc < 0.05)
         break;
       printf("cost %zu - %f\n", i, tc);
     }
