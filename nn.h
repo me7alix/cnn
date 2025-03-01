@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-// #define NN_BACKPROP_TRADITIONAL
+#define NN_BACKPROP_TRADITIONAL
 
 /*
         Saving nn to a file

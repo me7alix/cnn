@@ -1,1 +1,1 @@
-cc -g main.c -o build -lm -lraylib && ./build
+cc -g imglearn.c -o build -lm -lraylib && ./build
