@@ -35,7 +35,7 @@ Mat mat_submatrix(Mat a, int r1, int c1, int r2, int c2);
 Mat mat_get_rows(Mat src, int r, int cnt);
 void mat_print(Mat a, const char *name, size_t padding);
 void mat_f(Mat a, float (*func)(float el));
-void mat_rand(Mat a, float low, float high);
+void mat_rand(Mat a, float (*randf)(size_t), size_t inputs_num);
 void mat_zero(Mat a);
 Mat mat_row(Mat a, size_t r);
 void mat_copy(Mat dst, Mat src);
@@ -50,20 +50,30 @@ void mat_copy(Mat dst, Mat src);
 typedef enum {
   ACT_SIGM,
   ACT_RELU,
+  ACT_TANH,
+  ACT_SOFTMAX,
+  ACT_NULL,
 } Act;
+
+typedef struct {
+  size_t size;
+  Act actf;
+  float (*randf)(size_t);
+} Layer;
 
 typedef struct {
   size_t count;
   Mat *ws;
   Mat *bs;
   Mat *as; // The amount of activations is count+1
-  Act *actf;
+  Layer *layers;
 } NN;
 
+void nn_add_rand(NN nn);
 void nn_copy(NN nn, NN cnn);
 void nn_forward(NN nn);
-void nn_rand(NN nn, float low, float high);
-NN nn_new(size_t *arch, Act *actf, size_t arch_count);
+void nn_rand(NN nn);
+NN nn_alloc(Layer *layers, size_t layers_count);
 void nn_print(NN nn, const char *name);
 float nn_cost(NN nn, Mat ti, Mat to);
 void nn_backprop(NN nn, NN g, Mat ti, Mat to);
@@ -75,6 +85,19 @@ void nn_learn(NN nn, NN g, float rate);
 #endif
 
 #ifdef NN_IMPLEMENTATION
+
+float glorot_randf(size_t inputs_num) {
+  float lim = sqrt(6/((float)inputs_num));
+  float high = lim;
+  float low = -lim;
+  return (float)rand() / (float)(RAND_MAX) * (high - low) + low;
+}
+
+float sigm_randf(size_t inputs_num) {
+  float high = 0.5;
+  float low = -0.5;
+  return (float)rand() / (float)(RAND_MAX) * (high - low) + low;
+}
 
 Mat mat_alloc(size_t rows, size_t cols) {
   return (Mat){.es = malloc(sizeof(float) * rows * cols),
@@ -149,10 +172,10 @@ void mat_zero(Mat a) {
   }
 }
 
-void mat_rand(Mat a, float low, float high) {
+void mat_rand(Mat a, float (*randf)(size_t), size_t inputs_num) {
   for (size_t i = 0; i < a.rows; i++) {
     for (size_t j = 0; j < a.cols; j++) {
-      MAT_AT(a, i, j) = (float)rand() / (float)(RAND_MAX) * (high - low) + low;
+      MAT_AT(a, i, j) = randf(inputs_num);
     }
   }
 }
@@ -176,12 +199,36 @@ void mat_copy(Mat dst, Mat src) {
   }
 }
 
+void softmax(Mat a) {
+  for (size_t i = 0; i < a.rows; i++) {
+    float max = -INFINITY;
+    for (size_t j = 0; j < a.cols; j++) {
+      if (MAT_AT(a, i, j) > max) {
+        max = MAT_AT(a, i, j);
+      }
+    }
+
+    float sum = 0.0;
+    for (size_t j = 0; j < a.cols; j++) {
+      MAT_AT(a, i, j) = expf(MAT_AT(a, i, j) - max);
+      sum += MAT_AT(a, i, j);
+    }
+
+    for (size_t j = 0; j < a.cols; j++) {
+      MAT_AT(a, i, j) /= sum;
+    }
+  }
+}
+
 float actf(float x, Act actf) {
   switch (actf) {
   case ACT_RELU:
     return x > 0 ? x : x * NN_RELU_PARAM;
   case ACT_SIGM:
     return 1.f / (1.f + expf(-x));
+  case ACT_TANH:
+    float ex = expf(x);
+    return (ex-1.0/ex)/(ex+1.0/ex);
   }
 }
 
@@ -190,41 +237,48 @@ float dactf(float y, Act actf) {
   case ACT_RELU:
     return y >= 0 ? 1 : NN_RELU_PARAM;
   case ACT_SIGM:
-    // return 1.f / (1.f + expf(-y)) * (1.0 - (1.f / (1.f + expf(-y))));
     return y * (1.0 - y);
+  case ACT_TANH:
+    return 1.0-(y*y);
+  case ACT_SOFTMAX:
+    return 1.0;
   }
 }
 
 void mat_act(Mat a, Act f) {
-  for (size_t i = 0; i < a.rows; i++) {
-    for (size_t j = 0; j < a.cols; j++) {
-      MAT_AT(a, i, j) = actf(MAT_AT(a, i, j), f);
+  if (f == ACT_SOFTMAX) {
+    softmax(a);
+  } else {
+    for (size_t i = 0; i < a.rows; i++) {
+      for (size_t j = 0; j < a.cols; j++) {
+        MAT_AT(a, i, j) = actf(MAT_AT(a, i, j), f);
+      }
     }
   }
 }
 
-NN nn_new(size_t *arch, Act *actf, size_t arch_count) {
-  assert(arch_count > 0);
+NN nn_alloc(Layer *layers, size_t layers_count) {
+  assert(layers_count > 0);
 
   NN nn;
-  nn.count = arch_count - 1;
+  nn.count = layers_count - 1;
   nn.ws = malloc(sizeof(*nn.ws) * nn.count);
   assert(nn.ws != NULL);
   nn.bs = malloc(sizeof(*nn.bs) * nn.count);
   assert(nn.bs != NULL);
-  nn.as = malloc(sizeof(*nn.as) * arch_count);
+  nn.as = malloc(sizeof(*nn.as) * layers_count);
   assert(nn.as != NULL);
+  nn.layers = malloc(sizeof(Layer) * layers_count);
+  assert(nn.layers != NULL);
 
-  nn.actf = malloc(sizeof(Act) * nn.count);
+  nn.as[0] = mat_alloc(1, layers[0].size);
 
-  nn.as[0] = mat_alloc(1, arch[0]);
+  for (size_t i = 1; i < layers_count; i++) {
+    nn.ws[i - 1] = mat_alloc(nn.as[i - 1].cols, layers[i].size);
+    nn.bs[i - 1] = mat_alloc(1, layers[i].size);
+    nn.as[i] = mat_alloc(1, layers[i].size);
 
-  for (size_t i = 1; i < arch_count; i++) {
-    nn.ws[i - 1] = mat_alloc(nn.as[i - 1].cols, arch[i]);
-    nn.bs[i - 1] = mat_alloc(1, arch[i]);
-    nn.as[i] = mat_alloc(1, arch[i]);
-
-    nn.actf[i - 1] = actf[i - 1];
+    nn.layers[i] = layers[i];
   }
   return nn;
 }
@@ -238,10 +292,9 @@ void nn_print(NN nn, const char *name) {
   printf("]\n");
 }
 
-void nn_rand(NN nn, float low, float high) {
+void nn_rand(NN nn) {
   for (size_t i = 0; i < nn.count; i++) {
-    mat_rand(nn.ws[i], low, high);
-    mat_rand(nn.bs[i], low, high);
+    mat_rand(nn.ws[i], nn.layers[i + 1].randf, nn.layers[i].size);
   }
 }
 
@@ -249,7 +302,7 @@ void nn_forward(NN nn) {
   for (size_t i = 0; i < nn.count; i++) {
     mat_dot(nn.as[i + 1], nn.as[i], nn.ws[i]);
     mat_sum(nn.as[i + 1], nn.bs[i]);
-    mat_act(nn.as[i + 1], nn.actf[i]);
+    mat_act(nn.as[i + 1], nn.layers[i + 1].actf);
   }
 }
 
@@ -299,6 +352,19 @@ void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to) {
   }
 }
 
+void nn_add_rand(NN nn){
+	for(size_t i = 0; i < nn.count; i++){
+		Mat r1 = mat_alloc(nn.ws[i].rows, nn.ws[i].cols);
+		Mat r2 = mat_alloc(nn.bs[i].rows, nn.bs[i].cols);
+    mat_rand(nn.ws[i], nn.layers[i + 1].randf, nn.layers[i].size);
+    mat_rand(nn.ws[i], nn.layers[i + 1].randf, nn.layers[i].size);
+		mat_sum(nn.ws[i], r1);
+		mat_sum(nn.bs[i], r2);
+    mat_free(r1);
+    mat_free(r2);
+	}
+}
+
 void nn_copy(NN nn, NN cnn) {
   for (size_t i = 0; i < nn.count; i++) {
     mat_copy(nn.ws[i], cnn.ws[i]);
@@ -346,7 +412,7 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to) {
       for (size_t j = 0; j < nn.as[l].cols; j++) {
         float a = MAT_AT(nn.as[l], 0, j);
         float da = MAT_AT(g.as[l], 0, j);
-        float qa = dactf(a, nn.actf[l - 1]);
+        float qa = dactf(a, nn.layers[l].actf);
         MAT_AT(g.bs[l - 1], 0, j) += s * da * qa;
         for (size_t k = 0; k < nn.as[l - 1].cols; k++) {
           float pa = MAT_AT(nn.as[l - 1], 0, k);

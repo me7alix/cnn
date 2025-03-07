@@ -14,12 +14,31 @@ int main() {
   srand(time(0));
   Mat mat = parse_csv_to_mat("./digitrec/train.csv");
 
-  size_t layers[] = {28 * 28, 64, 32, 17, 10};
-  Act *actf = (Act[]){ACT_SIGM, ACT_RELU, ACT_RELU, ACT_SIGM};
-  NN nn = nn_new(layers, actf, ARR_LEN(layers));
-  NN g = nn_new(layers, actf, ARR_LEN(layers));
-  nn_rand(nn, -0.5, 0.5);
+  Layer *layers = (Layer[]){
+    (Layer){
+      .size = 28*28,
+      .randf = glorot_randf,
+    },
+    (Layer){
+      .size = 32,
+      .actf = ACT_RELU,
+      .randf = glorot_randf,
+    },
+    (Layer){
+      .size = 16,
+      .actf = ACT_RELU,
+      .randf = glorot_randf,
+    }, 
+    (Layer){
+      .size = 10,
+      .actf = ACT_SOFTMAX,
+      .randf = glorot_randf,
+    }
+  };
 
+  NN nn = nn_alloc(layers, 4);
+  NN g = nn_alloc(layers, 4);
+  nn_rand(nn);
   // initializing the data
   Mat nto = mat_submatrix(mat, 0, 0, 0, mat.rows - 1);
   Mat ti = mat_submatrix(mat, 1, 0, mat.cols - 1, mat.rows - 1);
@@ -45,7 +64,7 @@ int main() {
 
   // learning process
   size_t batch_size = 16;
-  float learning_rate = 0.01;
+  float learning_rate = 0.005;
 
   for (size_t i = 0; true; i++) { 
     size_t pos = (rand()) % (ti.rows - batch_size);

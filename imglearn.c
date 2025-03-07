@@ -12,7 +12,7 @@
 void draw_mat(Mat m, Vector2 pos, int tile){
   for (int i = 0; i < 28 * 28; i++) {
     float c = MAT_AT(m, 0, i) * 255.0;
-    DrawRectangle(pos.x + (i % 28) * tile, pos.y + (i / 28) * tile, tile, tile, (Color){c, c, c, 255});
+    DrawRectangle(pos.x + (i % 28) * tile, pos.y + (int)(i / 28) * tile, tile, tile, (Color){c, c, c, 255});
   }
 }
 
@@ -20,11 +20,37 @@ int main() {
   srand(time(0));
   Mat mat = parse_csv_to_mat("./digitrec/train.csv");
 
-  size_t layers[] = {3, 7, 12, 13, 10, 6, 1};
-  Act *actf = (Act[]){ACT_SIGM, ACT_RELU, ACT_RELU, ACT_RELU, ACT_RELU, ACT_SIGM};
-  NN nn = nn_new(layers, actf, ARR_LEN(layers));
-  NN g = nn_new(layers, actf, ARR_LEN(layers));
-  nn_rand(nn, -0.5, 0.5);
+  Layer *layers = (Layer[]){
+    (Layer){
+      .size = 3,
+      .randf = glorot_randf,
+    },
+    (Layer){
+      .size = 7,
+      .actf = ACT_SIGM,
+      .randf = glorot_randf,
+    },
+    (Layer){
+      .size = 10,
+      .actf = ACT_SIGM,
+      .randf = glorot_randf,
+    },
+    (Layer){
+      .size = 6,
+      .actf = ACT_SIGM,
+      .randf = glorot_randf,
+    },
+    (Layer){
+      .size = 1,
+      .actf = ACT_SIGM,
+      .randf = glorot_randf,
+    }
+  };
+
+  NN nn = nn_alloc(layers, 5);
+  NN g = nn_alloc(layers, 5);
+  nn_rand(nn);
+  NN_PRINT(nn);
 
   // initializing the data
   Mat imgs = mat_submatrix(mat, 1, 0, mat.cols - 1, mat.rows - 1);
@@ -35,9 +61,9 @@ int main() {
     }
   }
 
-  Mat img1 = mat_submatrix(imgs, 0, 19, 28*28-1, 2);
+  Mat img1 = mat_submatrix(imgs, 0, 78, 28*28-1, 78);
   Mat img2 = mat_submatrix(imgs, 0, 8, 28*28-1, 8);
-  Mat img3 = mat_submatrix(imgs, 0, 5, 28*28-1, 7);
+  Mat img3 = mat_submatrix(imgs, 0, 5, 28*28-1, 5);
 
   Mat ti = mat_alloc(1, 3);
   Mat to = mat_alloc(1, 1);
@@ -46,7 +72,7 @@ int main() {
   float tile = 5;
 
   float slider = 0.0;
-  float lrs = 0.4;
+  float lrs = 0.6;
 
   // init window 
   InitWindow(900, 620, "Window");
@@ -69,7 +95,7 @@ int main() {
         MAT_AT(to, 0, 0) = MAT_AT(img1, 0, i*28+j);
 
         nn_backprop(nn, g, ti, to);
-        nn_learn(nn, g, 0.01 * lrs);
+        nn_learn(nn, g, 0.03 * lrs);
 
         MAT_AT(ti, 0, 0) = j / 28.0;
         MAT_AT(ti, 0, 1) = i / 28.0;
@@ -77,7 +103,8 @@ int main() {
         MAT_AT(to, 0, 0) = MAT_AT(img2, 0, i*28+j);
 
         nn_backprop(nn, g, ti, to);
-        nn_learn(nn, g, 0.01 * lrs);       
+        nn_learn(nn, g, 0.03 * lrs);     
+
         MAT_AT(ti, 0, 0) = j / 28.0;
         MAT_AT(ti, 0, 1) = i / 28.0;
         MAT_AT(ti, 0, 2) = 1;

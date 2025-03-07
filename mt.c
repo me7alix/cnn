@@ -12,7 +12,7 @@
 
 #include <raylib.h>
 
-size_t layers[] = (size_t[]){28 * 28, 128, 32, 10};
+size_t layers[] = (size_t[]){28 * 28, 48, 16, 10};
 Act *actfs;
 
 Mat ti, to, cti, cto;
@@ -26,11 +26,11 @@ void mt_learn();
 int main() {
   srand(time(0));
   Mat mat = parse_csv_to_mat("./digitrec/train.csv");
-  actfs = (Act[]){ACT_RELU, ACT_RELU, ACT_SIGM};
+  actfs = (Act[]){ACT_SIGM, ACT_SIGM, ACT_SIGM};
 
   nn = nn_new(layers, actfs, ARR_LEN(layers));
   NN g = nn_new(layers, actfs, ARR_LEN(layers));
-  nn_rand(nn, -0.5, 0.5);
+  nn_rand(nn, -1, 1);
 
   // initializing the data
 
@@ -60,7 +60,7 @@ int main() {
 
   printf("cost after training = %f\n", nn_cost(nn, cti, cto));
 
-  // paint(nn);
+  //paint(nn);
   return 0;
 }
 
@@ -93,7 +93,7 @@ void *thread_function(void *arg) {
 
     pthread_mutex_unlock(&mutex);
 
-    size_t s = 6;
+    size_t s = 32;
     size_t pos = rand() % (ti.rows - s);
     Mat gti = mat_submatrix(ti, 0, pos, ti.cols - 1, pos + s);
     Mat gto = mat_submatrix(to, 0, pos, to.cols - 1, pos + s);
@@ -191,7 +191,7 @@ void mt_learn() {
       nn_copy(nns[i], nn);
     }
     for (int i = 0; i < num_threads; i++) {
-      nn_learn(nn, gs[i], 0.017f);
+      nn_learn(nn, gs[i], 0.005f);
     }
 
     cnt += num_threads;
