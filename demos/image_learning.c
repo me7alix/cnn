@@ -4,10 +4,10 @@
 #include <string.h>
 #include <time.h>
 #include <raylib.h>
-#include "csv_parser.c"
+#include "../csv_parser.c"
 
 #define NN_IMPLEMENTATION
-#include "nn.h"
+#include "../nn.h"
 
 void draw_mat(Mat m, Vector2 pos, int tile){
   for (int i = 0; i < 28 * 28; i++) {
@@ -18,7 +18,7 @@ void draw_mat(Mat m, Vector2 pos, int tile){
 
 int main() {
   srand(time(0));
-  Mat mat = parse_csv_to_mat("./digitrec/train.csv");
+  Mat mat = parse_csv_to_mat("./dataset/train.csv");
 
   Layer *layers = (Layer[]){
     (Layer){
@@ -50,7 +50,6 @@ int main() {
   NN nn = nn_alloc(layers, 5);
   NN g = nn_alloc(layers, 5);
   nn_rand(nn);
-  NN_PRINT(nn);
 
   // initializing the data
   Mat imgs = mat_submatrix(mat, 1, 0, mat.cols - 1, mat.rows - 1);
@@ -68,21 +67,22 @@ int main() {
   Mat ti = mat_alloc(1, 3);
   Mat to = mat_alloc(1, 1);
 
-  Vector2 pos = {320, 320};
-  float tile = 5;
-
-  float slider = 0.0;
-  float lrs = 0.6;
+  float input_slider = 0.0;
+  float learning_rate_slider = 0.6;
 
   // init window 
-  InitWindow(900, 620, "Window");
+  const int screen_width = 920;
+  const int screen_height = 640;
+
+  InitWindow(screen_width, screen_height, "Image learning");
+  SetTargetFPS(60);
 
   while (!WindowShouldClose()) {
     if(IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-      slider = fmin(1.0, fmaxf(GetMouseX()/900.0, 0));
+      input_slider = fmin(1.0, fmaxf(GetMouseX()/(float)screen_width, 0));
 
     if(IsMouseButtonDown(MOUSE_BUTTON_RIGHT))
-      lrs = fmin(1.0, fmaxf(GetMouseX()/900.0, 0));
+      learning_rate_slider = fmin(1.0, fmaxf(GetMouseX()/(float)screen_width, 0));
 
     BeginDrawing();
     ClearBackground(DARKGRAY);
@@ -95,7 +95,7 @@ int main() {
         MAT_AT(to, 0, 0) = MAT_AT(img1, 0, i*28+j);
 
         nn_backprop(nn, g, ti, to);
-        nn_learn(nn, g, 0.03 * lrs);
+        nn_learn(nn, g, 0.03 * learning_rate_slider);
 
         MAT_AT(ti, 0, 0) = j / 28.0;
         MAT_AT(ti, 0, 1) = i / 28.0;
@@ -103,7 +103,7 @@ int main() {
         MAT_AT(to, 0, 0) = MAT_AT(img2, 0, i*28+j);
 
         nn_backprop(nn, g, ti, to);
-        nn_learn(nn, g, 0.03 * lrs);     
+        nn_learn(nn, g, 0.03 * learning_rate_slider);     
 
         MAT_AT(ti, 0, 0) = j / 28.0;
         MAT_AT(ti, 0, 1) = i / 28.0;
@@ -111,20 +111,22 @@ int main() {
         MAT_AT(to, 0, 0) = MAT_AT(img3, 0, i*28+j);
 
         nn_backprop(nn, g, ti, to);
-        nn_learn(nn, g, 0.01 * lrs);
+        nn_learn(nn, g, 0.01 * learning_rate_slider);
       }
     }
-
-    float pixels = 280.0/3.0;
+    
+    Vector2 pos = {320, 320};
+    float scale = 3;
+    float pixels = 280.0/scale;
     for(int i = 0; i < pixels; i++) {
       for(int j = 0; j < pixels; j++) { 
         MAT_AT(NN_INPUT(nn), 0, 0) = j / pixels;
         MAT_AT(NN_INPUT(nn), 0, 1) = i / pixels;
-        MAT_AT(NN_INPUT(nn), 0, 2) = slider;
+        MAT_AT(NN_INPUT(nn), 0, 2) = input_slider;
         nn_forward(nn);
 
         float c = MAT_AT(NN_OUTPUT(nn), 0, 0) * 255.0;
-        DrawRectangle(pos.x + j*3, pos.y + i*3, 3, 3, (Color){c, c, c, 255});
+        DrawRectangle(pos.x + j * scale, pos.y + i * scale, scale, scale, (Color){c, c, c, 255});
       }
     }
 
@@ -132,8 +134,9 @@ int main() {
     draw_mat(img2, (Vector2){320, 20}, 10);
     draw_mat(img3, (Vector2){620, 20}, 10);
 
-    DrawRectangle(lrs * 900 - 10, 600, 20, 20, RED);
-    DrawRectangle(slider * 900 - 10, 600, 20, 20, BLUE);
+    DrawRectangle(learning_rate_slider * screen_width - 10, screen_height - 20, 20, 20, RED);
+    DrawRectangle(input_slider * screen_width - 10, screen_height - 20, 20, 20, BLUE);
+    DrawText("Use LMB to move \nblue slider (input value)\n\nUse RMB to move \nred slider (learning rate)", 20, 320, 20, WHITE);
 
     EndDrawing();
   }

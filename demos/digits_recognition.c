@@ -3,16 +3,16 @@
 #include <string.h>
 #include <time.h>
 #include <raylib.h>
-#include "csv_parser.c"
+#include "../csv_parser.c"
 
 #define NN_IMPLEMENTATION
-#include "nn.h"
+#include "../nn.h"
 
 void paint(NN nn);
 
 int main() {
   srand(time(0));
-  Mat mat = parse_csv_to_mat("./digitrec/train.csv");
+  Mat mat = parse_csv_to_mat("./dataset/train.csv");
 
   Layer *layers = (Layer[]){
     (Layer){
@@ -39,6 +39,7 @@ int main() {
   NN nn = nn_alloc(layers, 4);
   NN g = nn_alloc(layers, 4);
   nn_rand(nn);
+
   // initializing the data
   Mat nto = mat_submatrix(mat, 0, 0, 0, mat.rows - 1);
   Mat ti = mat_submatrix(mat, 1, 0, mat.cols - 1, mat.rows - 1);
@@ -51,7 +52,6 @@ int main() {
   // preparing the data
   for (size_t i = 0; i < mat.rows; i++) {
     MAT_AT(to, i, (int)MAT_AT(nto, i, 0)) = 1.0;
-    //MAT_AT(cto, i, (int)MAT_AT(nto, i, 0)) = 1.0;
   }
 
   for (size_t i = 0; i < ti.rows; i++) {
@@ -165,7 +165,6 @@ void paint(NN nn) {
     }
 
     BeginDrawing();
-
     ClearBackground(RAYWHITE);
 
     DrawText("Click RMB to clear the screen", 228, 580, 20, DARKGRAY);

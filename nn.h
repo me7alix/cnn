@@ -9,14 +9,6 @@
 
 #define NN_BACKPROP_TRADITIONAL
 
-/*
-        Saving nn to a file
-        1. 784,32,16,10  // the struct of nn
-        2. RELU, RELU, SIGM  // activation functions
-        3. 0.3213,0.95114,0.0484...  // weights of first layer
-        4. 0.8423,0.1929,0.6411...  // biases of first layer
-        5. etc
-*/
 
 typedef struct {
   float *es;
@@ -36,6 +28,7 @@ Mat mat_get_rows(Mat src, int r, int cnt);
 void mat_print(Mat a, const char *name, size_t padding);
 void mat_f(Mat a, float (*func)(float el));
 void mat_rand(Mat a, float (*randf)(size_t), size_t inputs_num);
+void mat_rand_between(Mat a, float low, float high);
 void mat_zero(Mat a);
 Mat mat_row(Mat a, size_t r);
 void mat_copy(Mat dst, Mat src);
@@ -52,7 +45,6 @@ typedef enum {
   ACT_RELU,
   ACT_TANH,
   ACT_SOFTMAX,
-  ACT_NULL,
 } Act;
 
 typedef struct {
@@ -69,11 +61,17 @@ typedef struct {
   Layer *layers;
 } NN;
 
+
+float glorot_randf(size_t inputs_num);
+float sigm_randf(size_t inputs_num);
+
 void nn_add_rand(NN nn);
 void nn_copy(NN nn, NN cnn);
 void nn_forward(NN nn);
 void nn_rand(NN nn);
+void nn_rand_between(NN nn, float low, float high);
 NN nn_alloc(Layer *layers, size_t layers_count);
+void nn_free(NN nn);
 void nn_print(NN nn, const char *name);
 float nn_cost(NN nn, Mat ti, Mat to);
 void nn_backprop(NN nn, NN g, Mat ti, Mat to);
@@ -176,6 +174,14 @@ void mat_rand(Mat a, float (*randf)(size_t), size_t inputs_num) {
   for (size_t i = 0; i < a.rows; i++) {
     for (size_t j = 0; j < a.cols; j++) {
       MAT_AT(a, i, j) = randf(inputs_num);
+    }
+  }
+}
+
+void mat_rand_between(Mat a, float low, float high) {
+  for (size_t i = 0; i < a.rows; i++) {
+    for (size_t j = 0; j < a.cols; j++) {
+      MAT_AT(a, i, j) = (float)rand() / (float)(RAND_MAX) * (high - low) + low;
     }
   }
 }
@@ -298,12 +304,33 @@ void nn_rand(NN nn) {
   }
 }
 
+void nn_rand_between(NN nn, float low, float high) {
+  for (size_t i = 0; i < nn.count; i++) {
+    mat_rand_between(nn.ws[i], low, high);
+    mat_rand_between(nn.bs[i], low, high);
+  } 
+}
+
 void nn_forward(NN nn) {
   for (size_t i = 0; i < nn.count; i++) {
     mat_dot(nn.as[i + 1], nn.as[i], nn.ws[i]);
     mat_sum(nn.as[i + 1], nn.bs[i]);
     mat_act(nn.as[i + 1], nn.layers[i + 1].actf);
   }
+}
+
+void nn_free(NN nn) {
+  mat_free(nn.as[0]);
+  for (size_t i = 0; i < nn.count; i++) {
+    mat_free(nn.as[i + 1]);
+    mat_free(nn.as[i]);
+    mat_free(nn.ws[i]);
+  }
+
+  free(nn.ws);
+  free(nn.bs);
+  free(nn.as);
+  free(nn.layers);
 }
 
 float nn_cost(NN nn, Mat ti, Mat to) {
@@ -352,12 +379,12 @@ void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to) {
   }
 }
 
-void nn_add_rand(NN nn){
+void nn_add_rand_between(NN nn, float low, float high){
 	for(size_t i = 0; i < nn.count; i++){
 		Mat r1 = mat_alloc(nn.ws[i].rows, nn.ws[i].cols);
 		Mat r2 = mat_alloc(nn.bs[i].rows, nn.bs[i].cols);
-    mat_rand(nn.ws[i], nn.layers[i + 1].randf, nn.layers[i].size);
-    mat_rand(nn.ws[i], nn.layers[i + 1].randf, nn.layers[i].size);
+    mat_rand_between(r1, low, high);
+    mat_rand_between(r2, low, high);
 		mat_sum(nn.ws[i], r1);
 		mat_sum(nn.bs[i], r2);
     mat_free(r1);
@@ -403,9 +430,9 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to) {
     }
 
 #ifdef NN_BACKPROP_TRADITIONAL
-    float s = 1;
-#else
     float s = 2;
+#else
+    float s = 1;
 #endif
 
     for (size_t l = nn.count; l > 0; l--) {
