@@ -303,11 +303,12 @@ int main(void) {
                        CAR_W, CAR_W, BLUE);
 
     char buf[128];
-    sprintf(buf, "Population: %d/%d\nEpoch: %d\nBest checkpoint: %i\n",
-            POPUL - dead_cars, POPUL, epoch, best_cp);
+    sprintf(buf, "Population: %d/%d\nEpoch: %d",
+            POPUL - dead_cars, POPUL, epoch);
     DrawText(buf, 20, 20, 20, (Color){255, 255, 255, 170});
     DrawText("LMB - create a wall\nRMB - remove last wall\nENTER - start "
-             "training\nSPACE - set start position",
+             "training\nSPACE - set start position\n"
+             "Z - place a checkpoint\nX - remove last checkpoint",
              500, 20, 20, (Color){255, 255, 255, 170});
     EndDrawing();
   }
