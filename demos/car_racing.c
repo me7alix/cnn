@@ -42,8 +42,7 @@ Vector2 start_pos;
 int dead_cars = 0;
 
 // neural network arch
-size_t layers_cnt = 3;
-Layer *layers = (Layer[]) {
+Layer layers[] = {
   (Layer){
     .size = RAY_CNT,
   },
@@ -223,7 +222,7 @@ void cars_init(bool parent) {
   for (int i = 0; i < POPUL; i++) {
     if (!parent) {
       cars[i] = (Car){
-        .nn = nn_alloc(layers, layers_cnt),
+        .nn = nn_alloc(layers, ARR_LEN(layers)),
         .pos = start_pos,
         .ang = 0,
         .cur_cp = 0,
@@ -259,7 +258,7 @@ int main(void) {
   InitWindow(screen_width, screen_height, "Car racing");
   SetTargetFPS(144);
 
-  best_nn = nn_alloc(layers, layers_cnt);
+  best_nn = nn_alloc(layers, ARR_LEN(layers));
 
   Vector2 fp = {};
   while (!WindowShouldClose()) {

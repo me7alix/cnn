@@ -20,7 +20,7 @@ int main() {
   srand(time(0));
   Mat mat = parse_csv_to_mat("./dataset/train.csv");
 
-  Layer *layers = (Layer[]){
+  Layer layers[] = {
     (Layer){
       .size = 3,
       .randf = glorot_randf,
@@ -47,8 +47,9 @@ int main() {
     }
   };
 
-  NN nn = nn_alloc(layers, 5);
-  NN g = nn_alloc(layers, 5);
+  NN nn = nn_alloc(layers, ARR_LEN(layers));
+  NN g = nn_alloc(layers, ARR_LEN(layers));
+  AdamOptimizer adam = adam_alloc(nn);
   nn_rand(nn);
 
   // initializing the data
@@ -103,7 +104,7 @@ int main() {
         MAT_AT(to, 0, 0) = MAT_AT(img2, 0, i*28+j);
 
         nn_backprop(nn, g, ti, to);
-        nn_learn(nn, g, 0.03 * learning_rate_slider);     
+        nn_learn(nn, g, 0.03 * learning_rate_slider);      
 
         MAT_AT(ti, 0, 0) = j / 28.0;
         MAT_AT(ti, 0, 1) = i / 28.0;

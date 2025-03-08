@@ -14,7 +14,7 @@ int main() {
   srand(time(0));
   Mat mat = parse_csv_to_mat("./dataset/train.csv");
 
-  Layer *layers = (Layer[]){
+  Layer layers[] = {
     (Layer){
       .size = 28*28,
       .randf = glorot_randf,
@@ -36,8 +36,9 @@ int main() {
     }
   };
 
-  NN nn = nn_alloc(layers, 4);
-  NN g = nn_alloc(layers, 4);
+  NN nn = nn_alloc(layers, ARR_LEN(layers));
+  NN g = nn_alloc(layers, ARR_LEN(layers));
+  AdamOptimizer adam = adam_alloc(nn);
   nn_rand(nn);
 
   // initializing the data
@@ -72,11 +73,12 @@ int main() {
     Mat gto = mat_submatrix(to, 0, pos, to.cols - 1, pos + batch_size);
 
     nn_backprop(nn, g, gti, gto);
-    nn_learn(nn, g, learning_rate);
+    //nn_learn(nn, g, learning_rate);
+    adam_update(nn, &adam, g, 0.002, 0.9, 0.999, 1e-8);
 
     if (i % 5000 == 0) {
       float tc = nn_cost(nn, cti, cto);
-      if (tc < 0.09)
+      if (tc < 0.07)
         break;
       printf("cost %zu - %f\n", i, tc);
     }

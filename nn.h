@@ -9,7 +9,6 @@
 
 #define NN_BACKPROP_TRADITIONAL
 
-
 typedef struct {
   float *es;
   size_t rows;
@@ -61,6 +60,16 @@ typedef struct {
   Layer *layers;
 } NN;
 
+typedef struct AdamOptimizer AdamOptimizer;
+
+struct AdamOptimizer {
+  Mat *m_w;
+  Mat *v_w;
+  Mat *m_b;
+  Mat *v_b;
+  size_t t;
+  size_t count;
+};
 
 float glorot_randf(size_t inputs_num);
 float sigm_randf(size_t inputs_num);
@@ -80,12 +89,125 @@ void nn_finite_diff(NN m, NN g, float eps, Mat ti, Mat to);
 void nn_learn(NN nn, NN g, float rate);
 #define NN_PRINT(nn) nn_print(nn, #nn)
 
+AdamOptimizer adam_alloc(NN nn);
+void adam_free(AdamOptimizer adam);
+void adam_update(NN nn, AdamOptimizer *adam, NN grad, float alpha, float beta1,
+                 float beta2, float epsilon);
+
 #endif
 
 #ifdef NN_IMPLEMENTATION
 
+// adam opt
+
+// Добавляем в nn.h
+
+AdamOptimizer adam_alloc(NN nn) {
+  AdamOptimizer adam;
+  adam.count = nn.count;
+  adam.t = 0;
+
+  // Инициализация матриц моментов
+  adam.m_w = malloc(sizeof(*adam.m_w) * nn.count);
+  adam.v_w = malloc(sizeof(*adam.v_w) * nn.count);
+  adam.m_b = malloc(sizeof(*adam.m_b) * nn.count);
+  adam.v_b = malloc(sizeof(*adam.v_b) * nn.count);
+
+  for (size_t i = 0; i < nn.count; i++) {
+    // Проверка размерностей
+    assert(nn.ws[i].rows > 0 && nn.ws[i].cols > 0);
+    assert(nn.bs[i].rows > 0 && nn.bs[i].cols > 0);
+
+    adam.m_w[i] = mat_alloc(nn.ws[i].rows, nn.ws[i].cols);
+    adam.v_w[i] = mat_alloc(nn.ws[i].rows, nn.ws[i].cols);
+    adam.m_b[i] = mat_alloc(nn.bs[i].rows, nn.bs[i].cols);
+    adam.v_b[i] = mat_alloc(nn.bs[i].rows, nn.bs[i].cols);
+
+    mat_zero(adam.m_w[i]);
+    mat_zero(adam.v_w[i]);
+    mat_zero(adam.m_b[i]);
+    mat_zero(adam.v_b[i]);
+  }
+
+  return adam;
+}
+
+void adam_free(AdamOptimizer adam) {
+  for (size_t i = 0; i < adam.count; i++) {
+    mat_free(adam.m_w[i]);
+    mat_free(adam.v_w[i]);
+    mat_free(adam.m_b[i]);
+    mat_free(adam.v_b[i]);
+  }
+  free(adam.m_w);
+  free(adam.v_w);
+  free(adam.m_b);
+  free(adam.v_b);
+}
+
+void adam_update(NN nn, AdamOptimizer *adam, NN grad, float alpha, float beta1,
+                 float beta2, float epsilon) {
+  adam->t++;
+
+  for (size_t i = 0; i < nn.count; i++) {
+    // Обновление моментов для весов
+    for (size_t j = 0; j < nn.ws[i].rows; j++) {
+      for (size_t k = 0; k < nn.ws[i].cols; k++) {
+        float g = MAT_AT(grad.ws[i], j, k);
+
+        // Первый момент
+        MAT_AT(adam->m_w[i], j, k) =
+            beta1 * MAT_AT(adam->m_w[i], j, k) + (1 - beta1) * g;
+
+        // Второй момент
+        MAT_AT(adam->v_w[i], j, k) =
+            beta2 * MAT_AT(adam->v_w[i], j, k) + (1 - beta2) * g * g;
+      }
+    }
+
+    // Обновление моментов для смещений
+    for (size_t j = 0; j < nn.bs[i].rows; j++) {
+      for (size_t k = 0; k < nn.bs[i].cols; k++) {
+        float g = MAT_AT(grad.bs[i], j, k);
+
+        MAT_AT(adam->m_b[i], j, k) =
+            beta1 * MAT_AT(adam->m_b[i], j, k) + (1 - beta1) * g;
+
+        MAT_AT(adam->v_b[i], j, k) =
+            beta2 * MAT_AT(adam->v_b[i], j, k) + (1 - beta2) * g * g;
+      }
+    }
+
+    // Коррекция смещения и обновление параметров
+    float bias_corr1 = 1 - powf(beta1, adam->t);
+    float bias_corr2 = 1 - powf(beta2, adam->t);
+
+    // Обновление весов
+    for (size_t j = 0; j < nn.ws[i].rows; j++) {
+      for (size_t k = 0; k < nn.ws[i].cols; k++) {
+        float m_hat = MAT_AT(adam->m_w[i], j, k) / bias_corr1;
+        float v_hat = MAT_AT(adam->v_w[i], j, k) / bias_corr2;
+
+        MAT_AT(nn.ws[i], j, k) -= alpha * m_hat / (sqrtf(v_hat) + epsilon);
+      }
+    }
+
+    // Обновление смещений
+    for (size_t j = 0; j < nn.bs[i].rows; j++) {
+      for (size_t k = 0; k < nn.bs[i].cols; k++) {
+        float m_hat = MAT_AT(adam->m_b[i], j, k) / bias_corr1;
+        float v_hat = MAT_AT(adam->v_b[i], j, k) / bias_corr2;
+
+        MAT_AT(nn.bs[i], j, k) -= alpha * m_hat / (sqrtf(v_hat) + epsilon);
+      }
+    }
+  }
+}
+
+// end adam
+
 float glorot_randf(size_t inputs_num) {
-  float lim = sqrt(6/((float)inputs_num));
+  float lim = sqrt(6 / ((float)inputs_num));
   float high = lim;
   float low = -lim;
   return (float)rand() / (float)(RAND_MAX) * (high - low) + low;
@@ -234,7 +356,7 @@ float actf(float x, Act actf) {
     return 1.f / (1.f + expf(-x));
   case ACT_TANH:
     float ex = expf(x);
-    return (ex-1.0/ex)/(ex+1.0/ex);
+    return (ex - 1.0 / ex) / (ex + 1.0 / ex);
   }
 }
 
@@ -245,7 +367,7 @@ float dactf(float y, Act actf) {
   case ACT_SIGM:
     return y * (1.0 - y);
   case ACT_TANH:
-    return 1.0-(y*y);
+    return 1.0 - (y * y);
   case ACT_SOFTMAX:
     return 1.0;
   }
@@ -308,7 +430,7 @@ void nn_rand_between(NN nn, float low, float high) {
   for (size_t i = 0; i < nn.count; i++) {
     mat_rand_between(nn.ws[i], low, high);
     mat_rand_between(nn.bs[i], low, high);
-  } 
+  }
 }
 
 void nn_forward(NN nn) {
@@ -379,17 +501,17 @@ void nn_finite_diff(NN nn, NN g, float eps, Mat ti, Mat to) {
   }
 }
 
-void nn_add_rand_between(NN nn, float low, float high){
-	for(size_t i = 0; i < nn.count; i++){
-		Mat r1 = mat_alloc(nn.ws[i].rows, nn.ws[i].cols);
-		Mat r2 = mat_alloc(nn.bs[i].rows, nn.bs[i].cols);
+void nn_add_rand_between(NN nn, float low, float high) {
+  for (size_t i = 0; i < nn.count; i++) {
+    Mat r1 = mat_alloc(nn.ws[i].rows, nn.ws[i].cols);
+    Mat r2 = mat_alloc(nn.bs[i].rows, nn.bs[i].cols);
     mat_rand_between(r1, low, high);
     mat_rand_between(r2, low, high);
-		mat_sum(nn.ws[i], r1);
-		mat_sum(nn.bs[i], r2);
+    mat_sum(nn.ws[i], r1);
+    mat_sum(nn.bs[i], r2);
     mat_free(r1);
     mat_free(r2);
-	}
+  }
 }
 
 void nn_copy(NN nn, NN cnn) {
@@ -430,9 +552,9 @@ void nn_backprop(NN nn, NN g, Mat ti, Mat to) {
     }
 
 #ifdef NN_BACKPROP_TRADITIONAL
-    float s = 2;
-#else
     float s = 1;
+#else
+    float s = 2;
 #endif
 
     for (size_t l = nn.count; l > 0; l--) {
