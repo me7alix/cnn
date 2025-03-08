@@ -98,21 +98,17 @@ void adam_update(NN nn, AdamOptimizer *adam, NN grad, float alpha, float beta1,
 
 #ifdef NN_IMPLEMENTATION
 
-// adam opt
-
 AdamOptimizer adam_alloc(NN nn) {
   AdamOptimizer adam;
   adam.count = nn.count;
   adam.t = 0;
 
-  // Инициализация матриц моментов
   adam.m_w = malloc(sizeof(*adam.m_w) * nn.count);
   adam.v_w = malloc(sizeof(*adam.v_w) * nn.count);
   adam.m_b = malloc(sizeof(*adam.m_b) * nn.count);
   adam.v_b = malloc(sizeof(*adam.v_b) * nn.count);
 
   for (size_t i = 0; i < nn.count; i++) {
-    // Проверка размерностей
     assert(nn.ws[i].rows > 0 && nn.ws[i].cols > 0);
     assert(nn.bs[i].rows > 0 && nn.bs[i].cols > 0);
 
@@ -148,22 +144,18 @@ void adam_update(NN nn, AdamOptimizer *adam, NN grad, float alpha, float beta1,
   adam->t++;
 
   for (size_t i = 0; i < nn.count; i++) {
-    // Обновление моментов для весов
     for (size_t j = 0; j < nn.ws[i].rows; j++) {
       for (size_t k = 0; k < nn.ws[i].cols; k++) {
         float g = MAT_AT(grad.ws[i], j, k);
 
-        // Первый момент
         MAT_AT(adam->m_w[i], j, k) =
             beta1 * MAT_AT(adam->m_w[i], j, k) + (1 - beta1) * g;
 
-        // Второй момент
         MAT_AT(adam->v_w[i], j, k) =
             beta2 * MAT_AT(adam->v_w[i], j, k) + (1 - beta2) * g * g;
       }
     }
 
-    // Обновление моментов для смещений
     for (size_t j = 0; j < nn.bs[i].rows; j++) {
       for (size_t k = 0; k < nn.bs[i].cols; k++) {
         float g = MAT_AT(grad.bs[i], j, k);
@@ -176,11 +168,9 @@ void adam_update(NN nn, AdamOptimizer *adam, NN grad, float alpha, float beta1,
       }
     }
 
-    // Коррекция смещения и обновление параметров
     float bias_corr1 = 1 - powf(beta1, adam->t);
     float bias_corr2 = 1 - powf(beta2, adam->t);
 
-    // Обновление весов
     for (size_t j = 0; j < nn.ws[i].rows; j++) {
       for (size_t k = 0; k < nn.ws[i].cols; k++) {
         float m_hat = MAT_AT(adam->m_w[i], j, k) / bias_corr1;
@@ -190,7 +180,6 @@ void adam_update(NN nn, AdamOptimizer *adam, NN grad, float alpha, float beta1,
       }
     }
 
-    // Обновление смещений
     for (size_t j = 0; j < nn.bs[i].rows; j++) {
       for (size_t k = 0; k < nn.bs[i].cols; k++) {
         float m_hat = MAT_AT(adam->m_b[i], j, k) / bias_corr1;
@@ -201,8 +190,6 @@ void adam_update(NN nn, AdamOptimizer *adam, NN grad, float alpha, float beta1,
     }
   }
 }
-
-// end adam
 
 float glorot_randf(size_t inputs_num) {
   float lim = sqrt(6 / ((float)inputs_num));
