@@ -100,8 +100,6 @@ void adam_update(NN nn, AdamOptimizer *adam, NN grad, float alpha, float beta1,
 
 // adam opt
 
-// Добавляем в nn.h
-
 AdamOptimizer adam_alloc(NN nn) {
   AdamOptimizer adam;
   adam.count = nn.count;
