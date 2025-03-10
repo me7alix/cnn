@@ -316,6 +316,7 @@ int main(void) {
   for (int i = 0; i < POPUL; i++) {
     nn_free(cars[i].nn);
   }
+  nn_free(best_nn);
 
   CloseWindow();
   return 0;
